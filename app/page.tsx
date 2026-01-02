@@ -388,7 +388,7 @@ export default function Home() {
         
         {/* 底部提示 */}
         <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
-          <p>提示: 双击文件夹进入，双击图片文件全屏查看。全屏查看时使用左右箭头键切换图片，按R键旋转图片，按ESC退出全屏。</p>
+          <p>提示: 双击文件夹进入，双击图片文件全屏查看。全屏查看时使用左右箭头键切换图片，按ESC退出全屏。</p>
         </div>
       </main>      {/* 全屏图片查看器 */}
       {viewerOpen && (
@@ -397,12 +397,22 @@ export default function Home() {
           className="fixed inset-0 z-50 bg-black flex items-center justify-center"
           onClick={() => setViewerOpen(false)}
         >
-          <div className="relative max-w-full max-h-full flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
               src={`/api/fs/file?path=${encodeURIComponent(currentImagePath)}`}
               alt={currentImagePath.split('/').pop()}
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()}
+              style={{
+                // 确保图像在保持比例的同时尽可能大
+                objectFit: 'contain',
+                width: 'auto',
+                height: 'auto',
+                maxWidth: '100%',
+                maxHeight: '100%',
+                // 确保平滑显示
+                imageRendering: 'auto'
+              }}
             />
           </div>
         </div>
