@@ -22,7 +22,7 @@ const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.
 
 export default function Home() {
   // 当前目录路径
-  const [currentPath, setCurrentPath] = useState<string>('.');
+  const [currentPath, setCurrentPath] = useState<string>('~');
   // 目录内容
   const [directoryData, setDirectoryData] = useState<DirectoryData | null>(null);
   // 加载状态
@@ -63,7 +63,7 @@ export default function Home() {
   
   // 初始加载
   useEffect(() => {
-    fetchDirectory('.');
+    fetchDirectory('~');
   }, [fetchDirectory]);
   
   // 处理目录项双击
@@ -101,11 +101,16 @@ export default function Home() {
   
   // 向上导航
   const handleGoUp = () => {
-    if (currentPath === '.' || currentPath === '') {
+    const parts = currentPath.split('/').filter(part => part.length > 0);
+    // 如果已经是根目录，则无法向上
+    if (parts.length <= 1) {
       return;
     }
-    const parentPath = currentPath.split('/').slice(0, -1).join('/') || '.';
-    fetchDirectory(parentPath);
+    // 构建父路径
+    const parentPath = parts.slice(0, -1).join('/');
+    // 如果父路径为空（理论上不会发生，因为parts.length>=2），则设置为根目录
+    const finalParentPath = parentPath || '/';
+    fetchDirectory(finalParentPath);
   };
   
   // 处理路径输入提交
@@ -115,7 +120,7 @@ export default function Home() {
       setInputPath('');
     }
   };
-  
+
   // 处理路径输入键盘事件
   const handlePathKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -230,7 +235,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-4">
               <button
                 onClick={handleGoUp}
-                disabled={currentPath === '.' || currentPath === ''}
+                disabled={currentPath.split('/').filter(part => part.length > 0).length <= 1}
                 className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 返回上级
@@ -359,7 +364,7 @@ export default function Home() {
         
         {/* 底部提示 */}
         <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
-          <p>提示: 双击文件夹进入，双击图片文件全屏查看。全屏查看时使用左右箭头键切换图片，按ESC退出全屏。</p>
+          <p>提示: 双击文件夹进入，双击图片文件全屏查看。全屏查看时使用左右箭头键切换图片，按R键旋转图片，按ESC退出全屏。</p>
         </div>
       </main>      {/* 全屏图片查看器 */}
       {viewerOpen && (
@@ -368,7 +373,7 @@ export default function Home() {
           className="fixed inset-0 z-50 bg-black flex items-center justify-center"
           onClick={() => setViewerOpen(false)}
         >
-          <div className="relative max-w-full max-h-full">
+          <div className="relative max-w-full max-h-full flex items-center justify-center">
             <img
               src={`/api/fs/file?path=${encodeURIComponent(currentImagePath)}`}
               alt={currentImagePath.split('/').pop()}

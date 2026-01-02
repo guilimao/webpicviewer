@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const filePath = searchParams.get('path');
+    let filePath = searchParams.get('path');
     
     if (!filePath) {
       return NextResponse.json(
@@ -14,18 +15,14 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // 安全限制：只允许访问项目根目录下的路径
-    const rootDir = process.cwd();
-    const absolutePath = path.resolve(rootDir, filePath);
-    
-    // 如果环境变量 ALLOW_OUTSIDE_ROOT 未设置为 'true'，则限制只能访问项目根目录内
-    const allowOutside = process.env.ALLOW_OUTSIDE_ROOT === 'true' || process.env.ALLOW_OUTSIDE_ROOT === '1';
-    if (!allowOutside && !absolutePath.startsWith(rootDir)) {
-      return NextResponse.json(
-        { error: 'Access denied. To access outside the project root, set ALLOW_OUTSIDE_ROOT=true' },
-        { status: 403 }
-      );
+    // 解析路径中的 ~ 为用户主目录
+    const homeDir = os.homedir();
+    if (filePath.startsWith('~')) {
+      filePath = path.join(homeDir, filePath.slice(1));
     }
+    
+    // 解析绝对路径
+    const absolutePath = path.resolve(filePath);
     
     // 检查文件是否存在
     try {
