@@ -20,6 +20,9 @@ type DirectoryData = {
 // 支持的图片扩展名
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif', '.ico'];
 
+// 预加载图片的批次数
+const PRELOAD_BATCH_SIZE = 20;
+
 export default function Home() {
   // 当前目录路径
   const [currentPath, setCurrentPath] = useState<string>('~');
@@ -36,6 +39,10 @@ export default function Home() {
   const [imageList, setImageList] = useState<FSItem[]>([]);
   const [currentImagePath, setCurrentImagePath] = useState<string>('');
   const viewerRef = useRef<HTMLDivElement>(null);
+  
+  // 预加载相关状态
+  const [preloadedImages, setPreloadedImages] = useState<Set<string>>(new Set());
+  const [lastPreloadedIndex, setLastPreloadedIndex] = useState<number>(-1);
   
   // 路径输入状态
   const [inputPath, setInputPath] = useState<string>('');
@@ -58,6 +65,9 @@ export default function Home() {
       setCurrentPath(data.path);
       // 重置失败记录，因为目录已更改
       setFailedThumbnails(new Set());
+      // 重置预加载状态
+      setPreloadedImages(new Set());
+      setLastPreloadedIndex(-1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load directory');
       console.error('Error fetching directory:', err);
@@ -71,22 +81,31 @@ export default function Home() {
     fetchDirectory('~');
   }, [fetchDirectory]);
   
-  // 处理目录项双击
-  const handleItemDoubleClick = (item: FSItem) => {
-    if (item.type === 'directory') {
-      // 进入子目录
-      fetchDirectory(item.path);
-    } else if (IMAGE_EXTS.includes(item.ext.toLowerCase())) {
-      // 打开图片查看器
-      openImageViewer(item);
-    } else {
-      // 非图片文件，暂时忽略或显示提示
-      alert(`Cannot open file: ${item.name}`);
+  // 预加载图片函数
+  const preloadImages = useCallback((startIndex: number, count: number = PRELOAD_BATCH_SIZE) => {
+    if (!imageList || imageList.length === 0) return;
+    
+    const endIndex = Math.min(startIndex + count, imageList.length);
+    const newPreloadedImages = new Set(preloadedImages);
+    
+    for (let i = startIndex; i < endIndex; i++) {
+      const imagePath = imageList[i].path;
+      if (!newPreloadedImages.has(imagePath)) {
+        // 创建Image对象进行预加载
+        const img = new window.Image();
+        img.src = `/api/fs/file?path=${encodeURIComponent(imagePath)}`;
+        newPreloadedImages.add(imagePath);
+      }
     }
-  };
+    
+    setPreloadedImages(newPreloadedImages);
+    setLastPreloadedIndex(endIndex - 1);
+    
+    console.log(`预加载图片: 索引 ${startIndex} 到 ${endIndex - 1}`);
+  }, [imageList, preloadedImages]);
   
-  // 打开图片查看器
-  const openImageViewer = (item: FSItem) => {
+  // 打开图片查看器时预加载前20张图片
+  const openImageViewerWithPreload = useCallback((item: FSItem) => {
     if (!directoryData) return;
     
     // 获取当前目录中的所有图片文件
@@ -102,6 +121,52 @@ export default function Home() {
     setCurrentImageIndex(index);
     setCurrentImagePath(item.path);
     setViewerOpen(true);
+    
+    // 重置预加载状态
+    setPreloadedImages(new Set());
+    setLastPreloadedIndex(-1);
+    
+    // 预加载当前图片周围的20张图片
+    // 从当前索引开始预加载
+    setTimeout(() => {
+      preloadImages(index, PRELOAD_BATCH_SIZE);
+    }, 100);
+  }, [directoryData, preloadImages]);
+  
+  // 处理目录项双击
+  const handleItemDoubleClick = (item: FSItem) => {
+    if (item.type === 'directory') {
+      // 进入子目录
+      fetchDirectory(item.path);
+    } else if (IMAGE_EXTS.includes(item.ext.toLowerCase())) {
+      // 打开图片查看器（带预加载）
+      openImageViewerWithPreload(item);
+    } else {
+      // 非图片文件，暂时忽略或显示提示
+      alert(`Cannot open file: ${item.name}`);
+    }
+  };
+  
+  // 图片查看器导航
+  const navigateImage = (direction: 'prev' | 'next') => {
+    if (imageList.length === 0) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = (currentImageIndex - 1 + imageList.length) % imageList.length;
+    } else {
+      newIndex = (currentImageIndex + 1) % imageList.length;
+    }
+    
+    setCurrentImageIndex(newIndex);
+    setCurrentImagePath(imageList[newIndex].path);
+    
+    // 检查是否需要预加载更多图片
+    if (newIndex > lastPreloadedIndex - 10 && lastPreloadedIndex < imageList.length - 1) {
+      // 当接近已预加载的末尾时，预加载下一批
+      const nextBatchStart = lastPreloadedIndex + 1;
+      preloadImages(nextBatchStart, PRELOAD_BATCH_SIZE);
+    }
   };
   
   // 向上导航
@@ -131,21 +196,6 @@ export default function Home() {
     if (e.key === 'Enter') {
       handlePathSubmit();
     }
-  };
-  
-  // 图片查看器导航
-  const navigateImage = (direction: 'prev' | 'next') => {
-    if (imageList.length === 0) return;
-    
-    let newIndex;
-    if (direction === 'prev') {
-      newIndex = (currentImageIndex - 1 + imageList.length) % imageList.length;
-    } else {
-      newIndex = (currentImageIndex + 1) % imageList.length;
-    }
-    
-    setCurrentImageIndex(newIndex);
-    setCurrentImagePath(imageList[newIndex].path);
   };
   
   // 键盘事件处理
