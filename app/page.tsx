@@ -40,6 +40,9 @@ export default function Home() {
   // 路径输入状态
   const [inputPath, setInputPath] = useState<string>('');
   
+  // 缩略图加载失败记录
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<string>>(new Set());
+  
   // 获取目录列表
   const fetchDirectory = useCallback(async (path: string) => {
     setLoading(true);
@@ -53,6 +56,8 @@ export default function Home() {
       const data: DirectoryData = await response.json();
       setDirectoryData(data);
       setCurrentPath(data.path);
+      // 重置失败记录，因为目录已更改
+      setFailedThumbnails(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load directory');
       console.error('Error fetching directory:', err);
@@ -292,60 +297,79 @@ export default function Home() {
           {/* 目录内容 */}
           {!loading && !error && directoryData && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {directoryData.items.map((item) => (
-                <div
-                  key={item.path}
-                  className={`group relative cursor-pointer rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl ${
-                    item.type === 'directory'
-                      ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/40 dark:hover:to-indigo-900/40'
-                      : IMAGE_EXTS.includes(item.ext)
-                      ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40'
-                      : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-800'
-                  }`}
-                  onDoubleClick={() => handleItemDoubleClick(item)}
-                >
-                  <div className="flex flex-col items-center text-center">
-                    {/* 图标 */}
-                    <div className="mb-3">
-                      {item.type === 'directory' ? (
-                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-500 text-white">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                          </svg>
-                        </div>
-                      ) : IMAGE_EXTS.includes(item.ext) ? (
-                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-500 text-white">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-500 text-white">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* 名称 */}
-                    <div className="font-medium text-gray-800 dark:text-white truncate w-full">
-                      {item.name}
-                    </div>
-                    
-                    {/* 类型标签 */}
-                    <div className={`mt-1 text-xs px-2 py-1 rounded-full ${
+              {directoryData.items.map((item) => {
+                const isImage = IMAGE_EXTS.includes(item.ext) && item.type === 'file';
+                const thumbnailFailed = failedThumbnails.has(item.path);
+                
+                return (
+                  <div
+                    key={item.path}
+                    className={`group relative cursor-pointer rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl ${
                       item.type === 'directory'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : IMAGE_EXTS.includes(item.ext)
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                      {item.type === 'directory' ? '文件夹' : item.ext.toUpperCase().replace('.', '')}
+                        ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/40 dark:hover:to-indigo-900/40'
+                        : isImage
+                        ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40'
+                        : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700 dark:hover:to-gray-800'
+                    }`}
+                    onDoubleClick={() => handleItemDoubleClick(item)}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      {/* 图标/缩略图 */}
+                      <div className="mb-3">
+                        {item.type === 'directory' ? (
+                          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-500 text-white">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                          </div>
+                        ) : isImage ? (
+                          // 图片文件：显示缩略图，如果加载失败则显示图标
+                          thumbnailFailed ? (
+                            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-500 text-white">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                              <img
+                                src={`/api/fs/thumbnail?path=${encodeURIComponent(item.path)}&size=128`}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                onError={() => {
+                                  setFailedThumbnails(prev => new Set(prev).add(item.path));
+                                }}
+                              />
+                            </div>
+                          )
+                        ) : (
+                          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-500 text-white">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 名称 */}
+                      <div className="font-medium text-gray-800 dark:text-white truncate w-full">
+                        {item.name}
+                      </div>
+                      
+                      {/* 类型标签 */}
+                      <div className={`mt-1 text-xs px-2 py-1 rounded-full ${
+                        item.type === 'directory'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : isImage
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {item.type === 'directory' ? '文件夹' : item.ext.toUpperCase().replace('.', '')}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           
