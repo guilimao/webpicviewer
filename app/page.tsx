@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, KeyboardEvent, useRef } from 'react';
 import Image from 'next/image';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // 定义文件/目录项的类型
 type FSItem = {
@@ -275,11 +276,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-black p-4 md:p-8">
       {/* 标题 */}
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">图片浏览器</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          双击文件夹进入，双击图片文件打开全屏查看器
-        </p>
+      <header className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">图片浏览器</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            双击文件夹进入，双击图片文件打开全屏查看器
+          </p>
+        </div>
+        <div className="mt-1">
+          <ThemeToggle />
+        </div>
       </header>
       
       {/* 主内容区 */}

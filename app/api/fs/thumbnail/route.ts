@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     // 对于SVG和ICO，直接返回原始文件（不调整大小）
     if (ext === '.svg' || ext === '.ico') {
       const contentType = ext === '.svg' ? 'image/svg+xml' : 'image/x-icon';
-      return new NextResponse(fileBuffer, {
+      return new NextResponse(new Uint8Array(fileBuffer), {
         status: 200,
         headers: {
           'Content-Type': contentType,
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 返回缩略图
-    return new NextResponse(thumbnailBuffer, {
+    return new NextResponse(new Uint8Array(thumbnailBuffer), {
       status: 200,
       headers: {
         'Content-Type': `image/${outputFormat}`,
